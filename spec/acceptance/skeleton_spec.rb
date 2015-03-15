@@ -5,12 +5,7 @@ require 'rubbis/server'
 TEST_PORT = 6380
 
 describe 'Rubbis', :acceptance do
-  it 'responds to ping' do
-    with_server do
-      expect(client.ping).to eq("PONG")
-    end
-  end
-
+ 
   def client
     Redis.new(host: 'localhost', port: TEST_PORT)
   end
@@ -44,4 +39,30 @@ describe 'Rubbis', :acceptance do
     `nc -z localhost #{port}`
     $?.success?
   end
+
+  it 'responds to ping' do
+    with_server do
+    	c = client
+    	c.without_reconnect do
+		    expect(c.ping).to eq("PONG")
+		    expect(c.ping).to eq("PONG")
+		  end
+    end
+  end
+
+  it 'responds to echo' do
+  	with_server do
+  		expect(client.echo("TEST")).to eq("TEST")
+  		expect(client.echo("TEST")).to eq("TEST")
+  	end
+  end
+
+
+  it 'supports multiple clients' do
+  	with_server do
+  		expect(client.echo("TEST")).to eq("TEST")
+  	end
+  end
+
+
 end
