@@ -1,4 +1,5 @@
 require 'socket'
+require 'date'
 
 module Rubbis
 	class Server
@@ -8,18 +9,40 @@ module Rubbis
 		end
 
 		def listen
-			socket = TCPServer.new(port)
+
+			readable = []
+			clients = {}
+			server = TCPServer.new(port)
+			readable << server
+
 			loop do
-				Thread.start(socket.accept) do |client|
-					handle_client client
+				ready_to_read, _ = IO.select(readable + clients.keys)
+
+				ready_to_read.each do |socket|
+					case socket
+					when server
+						child_socket = socket.accept
+						clients[child_socket] = Handler.new(child_socket)
+					else
+						clients[socket].process!
+					end
 				end
 			end
 		ensure
-			socket.close if socket
+			(readable + clients.keys).each do |socket|
+				socket.close
+			end
 		end
 
-		def handle_client(client)
-			loop do
+		class Handler
+			attr_reader :client
+
+			def initialize(socket)
+				@client = socket
+				@buffer = ""
+			end
+
+			def process!
 				header = client.gets.to_s
 
 				return unless header[0] == '*'
@@ -34,13 +57,13 @@ module Rubbis
 				response = case cmd[0].downcase
 				when 'ping' then "+PONG\r\n"
 				when 'echo' then "$#{cmd[1].length}\r\n#{cmd[1]}\r\n"
+				when 'time' then "+#{DateTime.now.to_s}\r\n"
 				end
 
 				client.write response
 			end
-		ensure
-			client.close
-		end
+			
+	end
 
 		private 
 
